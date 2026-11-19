@@ -264,3 +264,70 @@ public:
             index = count++;
             records[index].name = name;
             records[index].score = -1;  // the check below will replace this
+        }
+        if (score > records[index].score) { records[index].score = score; records[index].cleared = cleared; }
+        sortByScore();
+    }
+    void load() {
+        ifstream file(SCORE_FILE);
+        int score, cleared;
+        string name;
+        while (file >> score >> cleared) {
+            getline(file, name);
+            name = trim(name);
+            if (score >= 0 && cleared >= 0 && !name.empty())
+                addScore(name, score, cleared);
+        }
+    }
+    bool save() const {
+        ofstream file(SCORE_FILE);
+        if (!file) return false;
+        for (int i = 0; i < count; i++)
+            file << records[i].score << " " << records[i].cleared << " " << records[i].name << "\n";
+        return true;
+    }
+    void printRanking() const {
+        cout << "Rank\tName\tScore\tCleared\n";
+        for (int i = 0; i < count; i++)
+            cout << i + 1 << "\t" << records[i].name << "\t"
+                 << records[i].score << "\t" << records[i].cleared << "\n";
+    }
+    void fillTree(NameTree& tree) const { for (int i = 0; i < count; i++) tree.insert(records[i]); }
+};
+enum Status { PLAYING, LEVEL_WON, GAME_OVER, QUIT };
+class Game {
+public:
+    Grid maze, hintView;
+    bool hintVisible, stopInput;
+    Position player, monster, playerStart, monsterStart;
+    Stack history;
+    Inventory bag;
+    string message;
+    int health, lives, score, moves, monsterDelay, level, bossHealth, crystals;
+    bool bossMode;
+    Game() : hintVisible(false), stopInput(false), health(START_HEALTH), lives(START_LIVES),
+             score(0), moves(0), monsterDelay(1), level(0), bossHealth(100), crystals(0), bossMode(false) {}
+    void prepareLevel(int number, int delay) {
+        level = number; monsterDelay = delay; moves = 0; message = "";
+        hintVisible = stopInput = false; respawn();
+    }
+    void loadLevel(int number) {
+        const LevelData& data = LEVELS[number - 1];
+        int cols = string(data.lines[0]).size();
+        maze = Grid(data.rows, cols);  // uses the assignment operator
+        for (int r = 0; r < data.rows; r++) {
+            for (int c = 0; c < cols; c++) {
+                char cell = data.lines[r][c];
+                if (cell == 'P') playerStart = Position(r, c);
+                if (cell == 'M') monsterStart = Position(r, c);
+                maze.set(r, c, (cell == 'P' || cell == 'M') ? FLOOR : cell);
+            }
+        }
+        prepareLevel(number, data.monsterDelay);
+    }
+    // Recursion and backtracking create the random maze by trying different directions.
+    void carve(int r, int c) {
+        maze.set(r, c, FLOOR);
+        int order[4] = {0, 1, 2, 3};
+        for (int i = 3; i > 0; i--) {
+            int j = rand() % (i + 1);
