@@ -131,3 +131,70 @@ class Inventory {
     Inventory(const Inventory&); Inventory& operator=(const Inventory&);
 public:
     Inventory() : head(NULL) {}
+ ~Inventory() { while (head != NULL) removeItem(head->item); }
+    void addItem(string item) {
+        Node* node = new Node(item);
+        if (head == NULL) { head = node; return; }
+        Node* current = head;
+        while (current->next != NULL) current = current->next;
+        current->next = node;
+    }
+    bool removeItem(string item) {
+        Node* current = head;
+        Node* previous = NULL;
+        while (current != NULL && current->item != item) {
+            previous = current;
+            current = current->next;
+        }
+        if (current == NULL) return false;
+        if (previous == NULL) head = current->next;
+        else previous->next = current->next;
+        delete current;
+        return true;
+    }
+    int countItem(string item) const {
+        int count = 0;
+        for (Node* n = head; n != NULL; n = n->next)
+            if (n->item == item) count++;
+        return count;
+    }
+    string listItems() const {
+        if (head == NULL) return "(empty)";
+        string text = head->item;
+        for (Node* n = head->next; n != NULL; n = n->next) text += ", " + n->item;
+        return text;
+    }
+};
+struct Record { string name; int score; int cleared; };
+// Binary Search Tree of records. In-order traversal gives A-Z order.
+class NameTree {
+    struct Node {
+        Record record; Node* left; Node* right;
+        Node(const Record& r) : record(r), left(NULL), right(NULL) {}
+    };
+    Node* root;
+    NameTree(const NameTree&); NameTree& operator=(const NameTree&);
+    Node* insertAt(Node* node, const Record& record) {
+        if (node == NULL) node = new Node(record);
+        else if (record.name < node->record.name) node->left = insertAt(node->left, record);
+        else if (record.name > node->record.name) node->right = insertAt(node->right, record);
+        else node->record = record;  // same name: replace the old record
+        return node;
+    }
+    void printAt(Node* node) const {
+        if (node == NULL) return;
+        printAt(node->left);
+        cout << node->record.name << "\t" << node->record.score
+             << "\t" << node->record.cleared << "\n";
+        printAt(node->right);
+    }
+    void destroy(Node* node) {
+        if (node == NULL) return;
+        destroy(node->left);
+        destroy(node->right);
+        delete node;
+    }
+public:
+    NameTree() : root(NULL) {}
+    ~NameTree() { destroy(root); }
+    void insert(const Record& record) { root = insertAt(root, record); }
