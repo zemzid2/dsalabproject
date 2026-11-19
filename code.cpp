@@ -198,3 +198,69 @@ public:
     NameTree() : root(NULL) {}
     ~NameTree() { destroy(root); }
     void insert(const Record& record) { root = insertAt(root, record); }
+void printInOrder() const { printAt(root); }
+    const Record* find(string name) const {
+        Node* current = root;
+        while (current != NULL) {
+            if (name == current->record.name) return &current->record;
+            current = (name < current->record.name) ? current->left : current->right;
+        }
+        return NULL;
+    }
+};
+bool readLine(string& line) { return !getline(cin, line).fail(); }
+void clearScreen() { system("cls"); }
+void waitForEnter() { string ignored; cout << "\nPress Enter to continue..."; readLine(ignored); }
+string trim(string text) {
+    size_t first = 0, last = text.size();
+    while (first < last && (text[first] == ' ' || text[first] == '\t')) first++;
+    while (last > first && (text[last - 1] == ' ' || text[last - 1] == '\t')) last--;
+    return text.substr(first, last - first);
+}
+string cleanName(string name) {
+    name = trim(name);
+    name = trim(name.substr(0, MAX_NAME_LENGTH));
+    return name.empty() ? "Player" : name;
+}
+class ScoreBoard {
+    Record* records;
+    int count, capacity;
+    ScoreBoard(const ScoreBoard&); ScoreBoard& operator=(const ScoreBoard&);
+    void grow() {
+        capacity = capacity * 2;
+        Record* bigger = new Record[capacity];
+        for (int i = 0; i < count; i++) bigger[i] = records[i];
+        delete[] records;
+        records = bigger;
+    }
+public:
+    ScoreBoard() : count(0), capacity(4) { records = new Record[capacity]; }
+    ~ScoreBoard() { delete[] records; }
+    int getCount() const { return count; }
+    const Record& getRecord(int index) const { return records[index]; }
+    // LINEAR SEARCH: returns the player's index, or -1 if not found
+    int findPlayer(string name) const {
+        for (int i = 0; i < count; i++)
+            if (records[i].name == name) return i;
+        return -1;
+    }
+    // INSERTION SORT: highest score first
+    void sortByScore() {
+        for (int i = 1; i < count; i++) {
+            Record current = records[i];
+            int j = i - 1;
+            while (j >= 0 && (current.score > records[j].score ||
+                   (current.score == records[j].score && current.cleared > records[j].cleared))) {
+                records[j + 1] = records[j];
+                j--;
+            }
+            records[j + 1] = current;
+        }
+    }
+    void addScore(string name, int score, int cleared) {
+        int index = findPlayer(name);
+        if (index == -1) {
+            if (count == capacity) grow();
+            index = count++;
+            records[index].name = name;
+            records[index].score = -1;  // the check below will replace this
