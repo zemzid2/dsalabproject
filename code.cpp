@@ -331,3 +331,70 @@ public:
         int order[4] = {0, 1, 2, 3};
         for (int i = 3; i > 0; i--) {
             int j = rand() % (i + 1);
+            int temp = order[i];
+            order[i] = order[j];
+            order[j] = temp;
+        }
+        for (int i = 0; i < 4; i++) {
+            int nextRow = r + 2 * ROW_CHANGE[order[i]], nextCol = c + 2 * COL_CHANGE[order[i]];
+            bool inArea = nextRow >= 1 && nextRow <= maze.getRows() - 2 &&
+                          nextCol >= 1 && nextCol <= maze.getCols() - 4;
+            if (inArea && maze.get(nextRow, nextCol) == WALL) {
+                maze.set(r + ROW_CHANGE[order[i]], c + COL_CHANGE[order[i]], FLOOR);
+                carve(nextRow, nextCol);
+            }
+        }
+    }
+    void openWalls(int count, char value) {
+        for (int tries = 0; count > 0 && tries < 5000; tries++) {
+            int r = 1 + rand() % (maze.getRows() - 2), c = 1 + rand() % (maze.getCols() - 4);
+            bool across = maze.get(r, c - 1) == FLOOR && maze.get(r, c + 1) == FLOOR;
+            bool down = maze.get(r - 1, c) == FLOOR && maze.get(r + 1, c) == FLOOR;
+            if (maze.get(r, c) == WALL && (across || down)) { maze.set(r, c, value); count--; }
+        }
+    }
+    void placeItems(char item, int count) {
+        while (count > 0) {
+            int r = rand() % maze.getRows(), c = rand() % maze.getCols();
+            bool isStart = (r == playerStart.row && c == playerStart.col) ||
+                           (r == monsterStart.row && c == monsterStart.col);
+            if (maze.get(r, c) == FLOOR && !isStart) { maze.set(r, c, item); count--; }
+        }
+    }
+    void generateRandomLevel() {
+        const int ROWS = 13, COLS = 25;
+        maze = Grid(ROWS, COLS, WALL);
+        carve(1, 1);
+        openWalls(25, FLOOR); openWalls(2, HIDDEN);
+        maze.set(ROWS - 2, COLS - 3, DOOR); maze.set(ROWS - 2, COLS - 2, EXIT);
+        playerStart = Position(1, 1); monsterStart = Position(ROWS - 2, COLS - 4);
+        placeItems(KEY, 1); placeItems(TREASURE, 3); placeItems(TRAP, 3);
+        prepareLevel(0, 2);
+    }
+    bool canEnter(int r, int c, bool forMonster) const {
+        char cell = maze.get(r, c);
+        if (cell == WALL || cell == HIDDEN) return false;
+        if (cell == FOUND) return !forMonster;
+        if (cell == DOOR) return !forMonster && bag.countItem("Key") > 0;
+        return true;
+    }
+    // BFS checks nearby cells first, so the first route it finds is a shortest route.
+    int bfs(Position start, bool forMonster, int* parent, int* dist) const {
+        for (int i = 0; i < maze.nodeCount(); i++) parent[i] = dist[i] = -1;
+        Queue queue;
+        dist[maze.nodeId(start.row, start.col)] = 0;
+        queue.enqueue(maze.nodeId(start.row, start.col));
+        int explored = 0;
+        while (!queue.isEmpty()) {
+            int node = queue.dequeue();
+            explored++;
+            for (int i = 0; i < 4; i++) {
+                int r = maze.rowOf(node) + ROW_CHANGE[i], c = maze.colOf(node) + COL_CHANGE[i];
+                if (canEnter(r, c, forMonster) && dist[maze.nodeId(r, c)] == -1) {
+                    int next = maze.nodeId(r, c);
+                    dist[next] = dist[node] + 1;
+                    parent[next] = node;
+                    queue.enqueue(next);
+                }
+            }
+        }
