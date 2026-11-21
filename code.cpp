@@ -531,3 +531,69 @@ public:
         }
         int goal = (exitNode != -1) ? exitNode : keyNode;
         if (goal == -1) message += "Hint: no route is known. Look for a secret passage.\n";
+        else {
+            hintView = maze;  // uses the assignment operator
+            for (int node = parent[goal]; node != -1; node = parent[node]) {
+                char cell = maze.get(maze.rowOf(node), maze.colOf(node));
+                if (cell == FLOOR || cell == FOUND) hintView.set(maze.rowOf(node), maze.colOf(node), ROUTE);
+            }
+            hintVisible = true;
+            losePoints(HINT_COST);
+            if (exitNode != -1) message += "Hint: follow the * to the exit (-10 points).\n";
+            else message += "Hint: you need a key! Follow the * (-10 points).\n";
+        }
+        delete[] parent;
+        delete[] dist;
+    }
+    Status handleCommand(char command) {
+        if (command >= 'A' && command <= 'Z') command = command + 32;
+        switch (command) {
+            case 'w': return movePlayer(-1, 0);
+            case 's': return movePlayer(1, 0);
+            case 'a': return movePlayer(0, -1);
+            case 'd': return movePlayer(0, 1);
+            case 'u': return undoMove();
+            case 'f': return fightBoss();
+            case 'q': return QUIT;
+            case 'h': showHint(); break;
+            case 'i': message += "Inventory: " + bag.listItems() + "\n"; break;
+            case ' ': break;
+            default: return blocked("Unknown command. Use W, A, S, D, H, U, I or Q.");
+        }
+        return PLAYING;
+    }
+    char symbolAt(int r, int c) const {
+        if (r == player.row && c == player.col) return '@';
+        if (r == monster.row && c == monster.col) return 'M';
+        if (hintVisible && hintView.get(r, c) == ROUTE) return ROUTE;
+        char cell = maze.get(r, c);
+        if (cell == HIDDEN) return WALL;  // secret passages look like walls
+        return (cell == FLOOR) ? ' ' : cell;
+    }
+    void draw() const {
+        clearScreen();
+        cout << "================ THE HAUNTED MAZE ================\n";
+        if (level == 0) cout << "Level: Random";
+        else cout << "Level: " << level << "/" << LEVEL_COUNT;
+        cout << "  Health: " << health << "  Lives: " << lives
+             << "  Score: " << score << "  Moves: " << moves << "\n"
+             << "Keys: " << bag.countItem("Key") << "  Treasure: " << bag.countItem("Treasure") << "\n";
+        if (bossMode) cout << "Crystals: " << crystals << "/3  Boss health: " << bossHealth << "\n";
+        cout << "\n";
+        for (int r = 0; r < maze.getRows(); r++) {
+            for (int c = 0; c < maze.getCols(); c++) cout << symbolAt(r, c);
+            cout << "\n";
+        }
+        cout << "\n@ You  M " << (bossMode ? "Boss" : "Monster") << "  K Key  D Door  $ Treasure  ^ Trap  E Exit\n"
+             << "W/A/S/D Move  H Hint  U Undo  I Inventory  Q Quit\n";
+        if (bossMode) cout << "F Attack boss (stand next to it)\n";
+        cout << "(You can type several moves at once, e.g. ddds, then press Enter)\n\n"
+             << message;
+    }
+    Status playLevel() {
+        Status status = PLAYING;
+        while (status == PLAYING) {
+            draw();
+            cout << "Command: ";
+            string line;
+            if (!readLine(line)) return QUIT;
