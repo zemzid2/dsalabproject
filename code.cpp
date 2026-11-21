@@ -398,3 +398,69 @@ public:
                 }
             }
         }
+ return explored;
+    }
+        void moveMonster() {
+        int* parent = new int[maze.nodeCount()];
+        int* dist = new int[maze.nodeCount()];
+        bfs(monster, true, parent, dist);
+        int node = maze.nodeId(player.row, player.col);
+        if (dist[node] > 0) {  // the player can be reached
+            while (dist[node] > 1) node = parent[node];  // back to the first step
+            monster = Position(maze.rowOf(node), maze.colOf(node));
+        }
+        delete[] parent;
+        delete[] dist;
+    }
+    void losePoints(int points) { score = (score > points) ? score - points : 0; }
+    void respawn() { player = playerStart; monster = monsterStart; history.clear(); }
+    Status takeDamage(int amount) {
+        health -= amount;
+        stopInput = true;
+        if (health > 0) return PLAYING;
+        lives--;
+        if (lives <= 0) {
+            health = 0;
+            message += "You have no lives left!\n";
+            return GAME_OVER;
+        }
+        health = START_HEALTH;
+        message += "You lost a life! Back to the start.\n";
+        respawn();
+        return PLAYING;
+    }
+    bool monsterCaughtPlayer() const { return player.row == monster.row && player.col == monster.col; }
+    Status catchPlayer() {
+        message += "The monster caught you!\n";
+        Status status = takeDamage(MONSTER_DAMAGE);
+        if (status == PLAYING) respawn();
+        return status;
+    }
+    Status endTurn() {
+        if (monsterCaughtPlayer()) return catchPlayer();
+        if (moves % monsterDelay == 0) {
+            moveMonster();
+            if (monsterCaughtPlayer()) return catchPlayer();
+        }
+        for (int i = 0; i < 4; i++) {
+            if (maze.get(player.row + ROW_CHANGE[i], player.col + COL_CHANGE[i]) == HIDDEN) {
+                message += "You feel a cold draft from a nearby wall...\n";
+                break;
+            }
+        }
+        return PLAYING;
+    }
+    Status blocked(string text) { message += text + "\n"; stopInput = true; return PLAYING; }
+    Status collectFromCell() {
+        char cell = maze.get(player.row, player.col);
+        if (cell != FOUND) maze.set(player.row, player.col, FLOOR);  // items and traps work once
+        if (cell == KEY) {
+            bag.addItem("Key");
+            message += "You picked up a key.\n";
+        } else if (cell == TREASURE) {
+            bag.addItem("Treasure");
+            score += TREASURE_POINTS;
+            message += "You found treasure!\n";
+        } else if (cell == HIDDEN) {
+            maze.set(player.row, player.col, FOUND);
+            message += "You found a secret passage! The monster cannot use it.\n";
