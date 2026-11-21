@@ -464,3 +464,70 @@ public:
         } else if (cell == HIDDEN) {
             maze.set(player.row, player.col, FOUND);
             message += "You found a secret passage! The monster cannot use it.\n";
+        } else if (cell == TRAP) {
+            message += "A trap! It hurts.\n";
+            return takeDamage(TRAP_DAMAGE);
+        } else if (cell == CRYSTAL) {
+            crystals++;
+            bossHealth -= 25;
+            score += TREASURE_POINTS;
+            message += "Crystal collected! The boss is weaker.\n";
+        }
+        return PLAYING;
+    }
+    Status movePlayer(int rowChange, int colChange) {
+        int r = player.row + rowChange, c = player.col + colChange;
+        char cell = maze.get(r, c);
+        if (cell == WALL) return blocked("A wall blocks your way.");
+        if (cell == EXIT && bossMode && bossHealth > 0)
+            return blocked("Defeat the boss before escaping.");
+        if (cell == DOOR) {
+            if (!bag.removeItem("Key")) return blocked("The door is locked. You need a key.");
+            maze.set(r, c, FLOOR);
+            message += "You unlocked the door.\n";
+        }
+        history.push(player);
+        player = Position(r, c);
+        moves++;
+        if (cell == EXIT) return LEVEL_WON;
+        if (collectFromCell() == GAME_OVER) return GAME_OVER;
+        return endTurn();
+    }
+    Status fightBoss() {
+        if (!bossMode) return blocked("There is no boss here.");
+        if (crystals < 3) return blocked("Find all 3 crystals first.");
+        int distance = abs(player.row - monster.row) + abs(player.col - monster.col);
+        if (distance != 1) return blocked("Move next to the boss to attack.");
+        bossHealth -= 25;
+        moves++;
+        if (bossHealth <= 0) {
+            message += "You defeated the boss! Find the exit.\n";
+            monster = Position(-1, -1);
+            return PLAYING;
+        }
+        message += "You hit the boss!\n";
+        return endTurn();
+    }
+    // UNDO: returns the player to the previous cell. Collected items stay collected.
+    Status undoMove() {
+        Position previous;
+        if (!history.pop(previous)) return blocked("There is nothing to undo.");
+        player = previous;
+        moves++;
+        losePoints(UNDO_COST);
+        message += "Move undone (-5 points).\n";
+        return endTurn();
+    }
+    // HINT: finds a shortest route to the exit, or to a key if the exit is locked.
+    void showHint() {
+        int* parent = new int[maze.nodeCount()]; int* dist = new int[maze.nodeCount()];
+        bfs(player, false, parent, dist);
+        int exitNode = -1, keyNode = -1;
+        for (int node = 0; node < maze.nodeCount(); node++) {
+            char cell = maze.get(maze.rowOf(node), maze.colOf(node));
+            if (dist[node] == -1) continue;
+            if (cell == EXIT) exitNode = node;
+            if (cell == KEY && (keyNode == -1 || dist[node] < dist[keyNode])) keyNode = node;
+        }
+        int goal = (exitNode != -1) ? exitNode : keyNode;
+        if (goal == -1) message += "Hint: no route is known. Look for a secret passage.\n";
