@@ -597,3 +597,70 @@ public:
             cout << "Command: ";
             string line;
             if (!readLine(line)) return QUIT;
+message = "";
+            hintVisible = stopInput = false;
+            for (size_t i = 0; i < line.size() && status == PLAYING && !stopInput; i++)
+                status = handleCommand(line[i]);
+        }
+        return status;
+    }
+    void finishLevel() {
+        score += LEVEL_BONUS * (level == 0 ? 2 : level);  // a random maze counts as level 2
+        while (bag.removeItem("Key")) {}
+    }
+    void showAlgorithmDemo() const {
+        int* parent = new int[maze.nodeCount()]; int* dist = new int[maze.nodeCount()];
+        int explored = bfs(monster, true, parent, dist);
+        Grid view(maze);  // uses the copy constructor
+        int goal = maze.nodeId(player.row, player.col);
+        for (int node = parent[goal]; node != -1; node = parent[node])
+            view.set(maze.rowOf(node), maze.colOf(node), ROUTE);
+        cout << "\nBFS spreads out from M. A digit is the last digit of a cell's\n"
+             << "distance from M, and * is the monster's shortest route to you.\n\n";
+        for (int r = 0; r < maze.getRows(); r++) {
+            for (int c = 0; c < maze.getCols(); c++) {
+                char symbol = symbolAt(r, c);
+                if (symbol == '@' || symbol == 'M') cout << symbol;
+                else if (view.get(r, c) == ROUTE) cout << ROUTE;
+                else if (dist[maze.nodeId(r, c)] > 0) cout << dist[maze.nodeId(r, c)] % 10;
+                else cout << symbol;
+            }
+            cout << "\n";
+        }
+        cout << "\nCells explored: " << explored << "\n";
+        if (dist[goal] >= 0) cout << "Shortest route: " << dist[goal] << " steps\n";
+        else cout << "The monster cannot reach the player.\n";
+        delete[] parent;
+        delete[] dist;
+    }
+};
+void runGame(ScoreBoard& board, bool randomMaze) {
+    clearScreen();
+    cout << "Enter your name: ";
+    string name;
+    if (!readLine(name)) return;
+    name = cleanName(name);
+    Game game;
+    Status status = LEVEL_WON;
+    int cleared = 0, total = randomMaze ? 1 : LEVEL_COUNT;
+    for (int i = 1; i <= total && status == LEVEL_WON; i++) {
+        if (randomMaze) game.generateRandomLevel();
+        else game.loadLevel(i);
+        status = game.playLevel();
+        if (status == LEVEL_WON) {
+            cleared++;
+            game.finishLevel();
+            clearScreen();
+            cout << "Level cleared! Your score is now " << game.score << ".\n";
+            waitForEnter();
+        }
+    }
+    clearScreen();
+    if (status == LEVEL_WON) cout << "*** YOU ESCAPED THE HAUNTED MAZE! ***\n";
+    else if (status == GAME_OVER) cout << "*** GAME OVER: the maze has claimed you. ***\n";
+    else cout << "You left the maze.\n";
+    cout << name << ", your score: " << game.score << "   Levels cleared: " << cleared << "\n"
+         << "Your bag: " << game.bag.listItems() << "\n";
+    board.addScore(name, game.score, cleared);
+    if (!board.save()) cout << "Warning: the score could not be saved to the file.\n";
+    waitForEnter();
