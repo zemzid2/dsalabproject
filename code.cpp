@@ -664,3 +664,69 @@ void runGame(ScoreBoard& board, bool randomMaze) {
     board.addScore(name, game.score, cleared);
     if (!board.save()) cout << "Warning: the score could not be saved to the file.\n";
     waitForEnter();
+}
+void runSurvival(ScoreBoard& board) {
+    clearScreen();
+    cout << "Enter your name: ";
+    string name;
+    if (!readLine(name)) return;
+    name = cleanName(name);
+    Game game;
+    int cleared = 0;
+    Status status = PLAYING;
+    while (status == PLAYING || status == LEVEL_WON) {
+        game.generateRandomLevel();
+        status = game.playLevel();
+        if (status == LEVEL_WON) {
+            cleared++;
+            game.finishLevel();
+            cout << "Maze cleared! Next maze is coming.\n";
+            waitForEnter();
+        }
+    }
+    clearScreen();
+    if (status == GAME_OVER) cout << "*** SURVIVAL OVER! ***\n";
+    else cout << "You left Survival Mode.\n";
+    cout << name << ", mazes survived: " << cleared << "  Score: " << game.score << "\n";
+    board.addScore(name, game.score, cleared);
+    if (!board.save()) cout << "Could not save the score.\n";
+    waitForEnter();
+}
+void runBossFight(ScoreBoard& board) {
+    clearScreen();
+    cout << "Enter your name: ";
+    string name;
+    if (!readLine(name)) return;
+    name = cleanName(name);
+    Game game;
+    game.generateRandomLevel();
+    game.bossMode = true;
+    game.bossHealth = 100;
+    game.crystals = 0;
+    game.placeItems(CRYSTAL, 3);
+    Status status = game.playLevel();
+    clearScreen();
+    if (status == LEVEL_WON) cout << "*** BOSS DEFEATED! YOU ESCAPED! ***\n";
+    else if (status == GAME_OVER) cout << "*** THE BOSS DEFEATED YOU. ***\n";
+    else cout << "You left Boss Fight Mode.\n";
+    cout << name << ", score: " << game.score << "  Crystals: " << game.crystals << "/3\n";
+    board.addScore(name, game.score, status == LEVEL_WON ? 1 : 0);
+    if (!board.save()) cout << "Could not save the score.\n";
+    waitForEnter();
+}
+void showInstructions() {
+    clearScreen();
+    cout << "=================== HOW TO PLAY ===================\n"
+         << "Reach the exit (E) of each level while the monster hunts you.\n\nW/A/S/D  Move\n"
+         << "H        Hint: shortest route to the exit (-" << HINT_COST << " points)\n"
+         << "U        Undo: go back one step (-" << UNDO_COST << " points)\n"
+         << "I        Show your inventory    Q  Quit and save your score\n\n"
+         << "K  A key opens one door (D). The monster cannot pass a door.\n"
+         << "$  Treasure gives " << TREASURE_POINTS << " points.\n"
+         << "^  A trap removes " << TRAP_DAMAGE << " health, and then it breaks.\n"
+         << "M  The monster removes " << MONSTER_DAMAGE << " health and sends you back to the start.\n"
+         << ":  A secret passage. It looks like a wall until you walk into it!\n"
+         << "   A cold draft means one is next to you. The monster cannot use it.\n\n"
+         << "You have " << START_LIVES << " lives with " << START_HEALTH << " health each.\n"
+         << "Undo moves only you: items stay collected and the monster still moves.\n";
+    waitForEnter();
