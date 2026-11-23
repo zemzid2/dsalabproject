@@ -730,3 +730,70 @@ void showInstructions() {
          << "You have " << START_LIVES << " lives with " << START_HEALTH << " health each.\n"
          << "Undo moves only you: items stay collected and the monster still moves.\n";
     waitForEnter();
+}
+void showLeaderboard(const ScoreBoard& board) {
+    string choice = "";
+    while (choice != "0") {
+        clearScreen();
+        cout << "=================== LEADERBOARD ===================\n";
+        board.printRanking();
+        cout << "\n1. Show names in A-Z order (BST)\n"
+             << "2. Find a player by name (BST search)\n"
+             << "0. Back\nChoice: ";
+        if (!readLine(choice)) return;
+        choice = trim(choice);
+        cout << "\n";
+        NameTree tree;
+        board.fillTree(tree);
+        if (choice == "1") {
+            tree.printInOrder();
+        } else if (choice == "2") {
+            cout << "Enter the player's name: ";
+            string name;
+            if (!readLine(name)) return;
+            const Record* record = tree.find(trim(name));
+            if (record == NULL) cout << "Player not found.\n";
+            else cout << record->name << ": score " << record->score
+                      << ", levels cleared " << record->cleared << "\n";
+        } else if (choice != "0") {
+            cout << "Please choose from the menu.\n";
+        }
+        if (choice != "0") waitForEnter();
+    }
+}
+void runDemo() {
+    clearScreen();
+    cout << "=================== ALGORITHM DEMO ===================\n";
+    for (int i = 1; i <= LEVEL_COUNT; i++) {
+        Game game;
+        game.loadLevel(i);
+        cout << "\n--- Level " << i << " ---\n";
+        game.showAlgorithmDemo();
+    }
+    waitForEnter();
+}
+int main() {
+    srand((unsigned int)time(NULL));
+    ScoreBoard board;
+    board.load();
+    while (true) {
+        clearScreen();
+        cout << "=================== THE HAUNTED MAZE ===================\n"
+             << "1. New Game (3 levels)\n2. Random Maze\n3. How to Play\n"
+             << "4. Leaderboard\n5. Algorithm Demo (see BFS at work)\n6. Survival Mode (endless mazes)\n7. Boss Fight Mode (3 crystals + boss)\n0. Exit\nChoice: ";
+        string choice;
+        if (!readLine(choice)) break;  // no more input
+        choice = trim(choice);
+        if (choice == "1") runGame(board, false);
+        else if (choice == "2") runGame(board, true);
+        else if (choice == "3") showInstructions();
+        else if (choice == "4") showLeaderboard(board);
+        else if (choice == "5") runDemo();
+        else if (choice == "6") runSurvival(board);
+        else if (choice == "7") runBossFight(board);
+        else if (choice == "0") break;
+        else { cout << "Please choose from the menu.\n"; waitForEnter(); }
+    }
+    cout << "Goodbye! Thanks for playing.\n";
+    return 0;
+}
